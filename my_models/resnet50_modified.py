@@ -10,7 +10,7 @@ from keras import backend as K
 from keras.engine.topology import get_source_inputs
 from keras.applications.imagenet_utils import _obtain_input_shape
 
-from my_models.dictionary_convolution import DictConv2D
+from my_utils.dictionary_convolution import DictConv2D
 
 
 def identity_block(input_tensor, kernel_size, filters, stage, block):

@@ -29,6 +29,8 @@ class DictConv2D(Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
+                 dict_num=None,
+                 index_list=None,
                  **kwargs
                  ):
         super(DictConv2D, self).__init__(**kwargs)
@@ -49,6 +51,8 @@ class DictConv2D(Layer):
         self.kernel_constraint = constraints.get(kernel_constraint)
         self.bias_constraint = constraints.get(bias_constraint)
         self.input_spec = InputSpec(ndim=self.rank + 2)
+        self.dict_num = dict_num
+        self.index_list = index_list
 
     def build(self, input_shape):
         if self.data_format=='channels_first':
@@ -59,12 +63,14 @@ class DictConv2D(Layer):
             raise ValueError('The channel dimension of the inputs '
                              'should be defined. Found `None`.')
         input_dim = input_shape[channel_axis]
+        if self.dict_num == None:
+            self.dict_num = self.filters
 
         self.kernel_num=input_dim*self.filters
 
         self.kernels_shape=self.kernel_size+(input_dim,self.filters)
 
-        self.A=self.add_weight(shape=(input_dim,self.filters,),
+        self.A=self.add_weight(shape=(self.filters,),
                                initializer=self.kernel_initializer,
                                name='A',
                                trainable=True)
@@ -74,7 +80,7 @@ class DictConv2D(Layer):
                                name='X',
                                trainable=False)
 
-        self.B=self.add_weight(shape=(input_dim,self.filters,),
+        self.B=self.add_weight(shape=(self.filters,),
                                initializer=self.kernel_initializer,
                                name='B',
                                trainable=True)

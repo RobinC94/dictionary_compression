@@ -3,19 +3,15 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
-import os
-import warnings
-
 from keras.models import Model
 from keras import layers
 from keras.layers import Activation, Dense, Input, BatchNormalization, Conv2D, MaxPooling2D, AveragePooling2D, GlobalAveragePooling2D, GlobalMaxPooling2D
 from keras.engine.topology import get_source_inputs
-from keras.utils.data_utils import get_file
 from keras import backend as K
 from keras.applications import imagenet_utils
-from keras.applications.imagenet_utils import decode_predictions, _obtain_input_shape
+from keras.applications.imagenet_utils import _obtain_input_shape
 
-from my_models.dictionary_convolution import DictConv2D
+from my_utils.dictionary_convolution import DictConv2D
 
 def conv2d_bn(x,
               filters,
