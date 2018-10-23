@@ -12,7 +12,7 @@ parser.add_argument("-t", "--train", help="whether train model", default=False, 
 parser.add_argument("-s", "--save", help="whether save model", default=False, type=bool)
 parser.add_argument("-e", "--epoches", help="train epoches", default=10, type=int)
 parser.add_argument("-r", "--rate", help="comp rate", default=4, type=int)
-parser.add_argument("-g", "--gpu", help="gpu id", default=0, type=int)
+parser.add_argument("-g", "--gpu", help="gpu id", default='', type=str)
 args = parser.parse_args()
 
 
@@ -26,17 +26,18 @@ if __name__ == "__main__":
         model.load_weights("./weights/resnet50_weights_75_16.h5")
     elif name == "vgg16":
         image_size = 224
-        model = keras.applications.VGG16()
+        model = keras.applications.vgg16.VGG16()
         model.load_weights("./weights/vgg16_weights_71_42.h5")
     elif name == "inceptionv3":
         image_size = 299
-        model = keras.applications.InceptionV3()
+        model = keras.applications.inception_v3.InceptionV3()
     else:
         raise ValueError("model name wrong")
 
     model_new = modify_model(model, name=name, rate=args.rate, save=args.save)
 
     evaluate_model(model_new, name=name, image_size=image_size)
+    evaluate_model(model, name=name, image_size=image_size)
 
     if args.train:
-        training_model(model, name=name, epoches=args.epoches)
+        training_model(model, name=name, image_size=image_size, epoches=args.epoches, modified=True)

@@ -4,20 +4,23 @@ from sklearn.decomposition import MiniBatchDictionaryLearning
 fit_algorithm = 'cd'
 transform_algorithm = 'omp'
 transform_n_nonzero_coefs = 2
-n_iter=100
+n_iter=50
 
 def comp_kernel(kernel, n_components=16):
     num = np.shape(kernel)[3]
     channel = np.shape(kernel)[2]
+    filter_size = np.shape(kernel)[:2]
     dic_list = []
     index_list = []
     a_list = []
     b_list = []
     avg_e = 0
+    print np.shape(kernel)
 
     for i in range(channel):
         k = kernel[:,:,i,:]
-        k.shape = (9, num)
+        k.shape = (filter_size[0]*filter_size[1], num)
+        #print k.shape
         k=k.transpose()
         v, index, a1, a2, e = dict_learn(k, n_components=n_components)
         dic_list.append(v)
@@ -26,7 +29,7 @@ def comp_kernel(kernel, n_components=16):
         b_list.append(a2)
         avg_e += e
 
-    print 'num: ', num, 'comp: ', n_components, 'avg error: ', avg_e/num
+    print 'num: ', num, 'comp: ', n_components, 'avg error: ', avg_e/channel
 
     return dic_list, index_list, a_list, b_list
 
@@ -56,9 +59,9 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
     return v, index, a1, a2, error
 
 if __name__ == '__main__':
-    inin = range(3*3*16*32)
+    inin = range(3*3*3*32)
     kernel = np.array(inin)
-    kernel.shape = (3,3,16,32)
+    kernel.shape = (3,3,3,32)
     dic_list, index_list, a_list, b_list = comp_kernel(kernel, n_components=8)
 
     print(np.shape(dic_list))

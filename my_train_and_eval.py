@@ -45,24 +45,27 @@ def training_model(model,
                    image_size=img_size,
                    epoches=nb_epoch,
                    batch_size=batch_size,
-                   modified=False
+                   modified=False,
+                   rate=4
                    ):
     if modified:
-        weight_path = "./weights/%s_modified_weights.{epoch:02d}.h5" % name
-        csv_path = './result/train_%s_modified_imagenet.csv' % name
+        weight_path = "./weights/%s_modified_weights_%d.{epoch:02d}.h5" % (name, rate)
+        csv_path = './result/train_%s_modified_imagenet_%d.csv' % (name, rate)
+        lr_func = lr_fine_tune_schedule
     else:
         weight_path = "./weights/%s_weights.{epoch:02d}.h5" % name
         csv_path = './result/train_%s_imagenet.csv' % name
-    model.compile(loss='categorical_crossentropy', optimizer=SGD(lr=lr_train_schedule(0), momentum=0.9, decay=0.0001),
+        lr_func = lr_train_schedule
+    model.compile(loss='categorical_crossentropy', optimizer=SGD(lr=lr_func(0), momentum=0.9, decay=0.0001),
                   metrics=['accuracy', acc_top5])
     lr_reducer = ReduceLROnPlateau(factor=np.sqrt(0.1), cooldown=0, patience=5, min_lr=0.5e-6)
-    lr_scheduler = LearningRateScheduler(lr_train_schedule)
+    lr_scheduler = LearningRateScheduler(lr_func)
     early_stopper = EarlyStopping(min_delta=0.001, patience=10)
     csv_logger = CSVLogger(csv_path)
     ckpt = ModelCheckpoint(filepath=weight_path, monitor='loss',
                            save_best_only=True,
                            save_weights_only=True)
-    tensorboard = TensorBoard(log_dir='./logs', histogram_freq=1, write_images=True)
+    #tensorboard = TensorBoard(log_dir='./logs', histogram_freq=1, write_images=True)
     model.fit_generator(generator=training_data_gen(image_size, name=name),
                         steps_per_epoch=1281167 / batch_size,  # 1281167 is the number of training data we have
                         validation_data=evaluating_data_gen(image_size, name=name),
@@ -161,7 +164,7 @@ class LossHistory(keras.callbacks.Callback):
 
 
 def lr_fine_tune_schedule(epoch):
-    lr = 1e-4
+    lr = 1e-3
     if epoch >= 8:
         lr *= sqrt(0.1)
     if epoch >= 5:
