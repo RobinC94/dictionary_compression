@@ -4,13 +4,13 @@ from sklearn.decomposition import MiniBatchDictionaryLearning
 fit_algorithm = 'cd'
 transform_algorithm = 'omp'
 transform_n_nonzero_coefs = 2
-n_iter=100
+n_iter=50
 
 def comp_kernel(kernel, n_components=16):
     num = np.shape(kernel)[3]
     channel = np.shape(kernel)[2]
     filter_size = np.shape(kernel)[:2]
-    print np.shape(kernel)
+    #print np.shape(kernel)
 
     k = kernel
     k.shape = (filter_size[0]*filter_size[1]*channel, num)
@@ -45,10 +45,10 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
     v = dico.fit(y).components_
     x = dico.transform(y)
 
-    index = []
     a1=[]
     a2=[]
     nz = np.nonzero(x)
+    index = zip(nz[0], nz[1])
     #print(np.nonzero(x))
     #print(np.where(nz[0] == 1))
     #print(len(nz), n*2)
@@ -56,7 +56,6 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
         nz_i = np.where(nz[0] == i)[0]
         if nz_i.shape[0] == 2:
             l=[nz[1][nz_i[0]], nz[1][nz_i[1]]]
-            index.append(l)
             a1.append(x[i,l[0]])
             a2.append(x[i,l[1]])
         else:
@@ -64,7 +63,6 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
                 l=[nz[1][nz_i[0]],1]
             else:
                 l = [nz[1][nz_i[0]], 0]
-            index.append(l)
             a1.append(x[i, l[0]])
             a2.append(0)
 

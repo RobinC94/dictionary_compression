@@ -37,7 +37,7 @@ if __name__ == "__main__":
     model_new = modify_model(model, name=name, rate=args.rate, save=args.save)
 
     evaluate_model(model_new, name=name, image_size=image_size)
-    evaluate_model(model, name=name, image_size=image_size)
+    #evaluate_model(model, name=name, image_size=image_size)
 
     if args.train:
         training_model(model, name=name, image_size=image_size, epoches=args.epoches, modified=True)

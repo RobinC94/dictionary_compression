@@ -15,7 +15,8 @@ from my_utils.dictionary_convolution import DictConv2D
 def ModifiedVGG16(include_top=True, weights='imagenet',
           input_tensor=None, input_shape=None,
           pooling=None,
-          classes=1000):
+          classes=1000,
+                  rate=4):
 
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
@@ -33,31 +34,31 @@ def ModifiedVGG16(include_top=True, weights='imagenet',
         else:
             img_input = input_tensor
     # Block 1
-    x = DictConv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv1')(img_input)
-    x = DictConv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv2')(x)
+    x = DictConv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv1', comp_rate=rate)(img_input)
+    x = DictConv2D(64, (3, 3), activation='relu', padding='same', name='block1_conv2', comp_rate=rate)(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block1_pool')(x)
 
     # Block 2
-    x = DictConv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
-    x = DictConv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv2')(x)
+    x = DictConv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1', comp_rate=rate)(x)
+    x = DictConv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv2', comp_rate=rate)(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block2_pool')(x)
 
     # Block 3
-    x = DictConv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
-    x = DictConv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv2')(x)
-    x = DictConv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3')(x)
+    x = DictConv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1', comp_rate=rate)(x)
+    x = DictConv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv2', comp_rate=rate)(x)
+    x = DictConv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv3', comp_rate=rate)(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block3_pool')(x)
 
     # Block 4
-    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv1')(x)
-    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv2')(x)
-    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv3')(x)
+    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv1', comp_rate=rate)(x)
+    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv2', comp_rate=rate)(x)
+    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv3', comp_rate=rate)(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block4_pool')(x)
 
     # Block 5
-    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv1')(x)
-    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv2')(x)
-    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv3')(x)
+    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv1', comp_rate=rate)(x)
+    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv2', comp_rate=rate)(x)
+    x = DictConv2D(512, (3, 3), activation='relu', padding='same', name='block5_conv3', comp_rate=rate)(x)
     x = MaxPooling2D((2, 2), strides=(2, 2), name='block5_pool')(x)
 
     if include_top:

@@ -12,6 +12,8 @@ from keras.regularizers import l2
 import tensorflow as tf
 import numpy as np
 
+import my_models
+
 class DictConv2D(Layer):
     def __init__(self,
                  filters,
@@ -29,8 +31,7 @@ class DictConv2D(Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
-                 dict_num=None,
-                 index_list=None,
+                 comp_rate=None,
                  **kwargs
                  ):
         super(DictConv2D, self).__init__(**kwargs)
@@ -51,8 +52,7 @@ class DictConv2D(Layer):
         self.kernel_constraint = constraints.get(kernel_constraint)
         self.bias_constraint = constraints.get(bias_constraint)
         self.input_spec = InputSpec(ndim=self.rank + 2)
-        self.dict_num = dict_num
-        self.index_list = index_list
+        self.comp_rate = comp_rate
 
     def build(self, input_shape):
         if self.data_format=='channels_first':
@@ -62,33 +62,29 @@ class DictConv2D(Layer):
         if input_shape[channel_axis] is None:
             raise ValueError('The channel dimension of the inputs '
                              'should be defined. Found `None`.')
-        input_dim = input_shape[channel_axis]
-        if self.dict_num == None:
-            self.dict_num = self.filters
+        self.input_dim = input_shape[channel_axis]
 
-        self.kernel_num=input_dim*self.filters
+        self.kernels_shape = self.kernel_size + (self.input_dim, self.filters)
 
-        self.kernels_shape=self.kernel_size+(input_dim,self.filters)
+        self.dict_num = max(my_models.LEAST_ATOMS, self.filters/self.comp_rate)
 
-        self.A=self.add_weight(shape=(self.filters,),
+        self.dict_shape = self.kernel_size + (self.input_dim, self.dict_num,)
+
+        self.dict = self.add_weight(shape=(self.dict_shape),
+                                    initializer=self.kernel_initializer,
+                                    name='dict',
+                                    trainable=True)
+
+        self.coef=self.add_weight(shape=(self.filters*2,),
                                initializer=self.kernel_initializer,
-                               name='A',
+                               name='coef',
                                trainable=True)
 
-        self.X=self.add_weight(shape=self.kernels_shape,
-                               initializer=self.kernel_initializer,
-                               name='X',
-                               trainable=False)
-
-        self.B=self.add_weight(shape=(self.filters,),
-                               initializer=self.kernel_initializer,
-                               name='B',
-                               trainable=True)
-
-        self.Y = self.add_weight(shape=self.kernels_shape,
-                                 initializer=self.kernel_initializer,
-                                 name='Y',
-                                 trainable=False)
+        self.index=self.add_weight(shape=(self.filters*2,2,),
+                                   #dtype='int32',
+                                   initializer='zero',
+                                   name='index',
+                                   trainable=False)
 
         if self.use_bias:
             self.bias = self.add_weight(shape=(self.filters,),
@@ -100,11 +96,22 @@ class DictConv2D(Layer):
             self.bias = None
         # Set input spec.
         self.input_spec = InputSpec(ndim=self.rank + 2,
-                                    axes={channel_axis: input_dim})
+                                    axes={channel_axis: self.input_dim})
         self.built = True
 
     def call(self, inputs, **kwargs):
-        self.kernel=self.A*self.X+self.B*self.Y
+        '''
+        self.matrix=tf.SparseTensor(indices=tf.to_int64(self.index),
+                                    values=self.coef,
+                                    dense_shape=(self.dict_num, self.filters))
+
+        #self.kernel = tf.sparse_tensor_dense_matmul(self.matrix, self.dict)
+        '''
+        self.matrix = tf.transpose(tf.sparse_to_dense(sparse_indices=tf.to_int32(self.index),
+                                         sparse_values=self.coef,
+                                         output_shape=(self.filters, self.dict_num)))
+
+        self.kernel = self._matmul()
 
         outputs=K.conv2d(inputs,
                          self.kernel,
@@ -170,41 +177,58 @@ class DictConv2D(Layer):
         base_config=super(DictConv2D, self).get_config()
         return dict(list(base_config.items())+list(config.items()))
 
+    def _matmul(self):
+        sh = self.dict_shape
+        prod = 1
+        for z in self.dict_shape[:-1]:
+            prod *= z
+        reshape_dict = tf.reshape(self.dict, [prod, sh[-1]])
+        result = tf.reshape(tf.matmul(reshape_dict, self.matrix, b_is_sparse=True), self.kernels_shape)
+        return result
+
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
     _IMAGE_DATA_FORMAT='channels_last'
 
     input_shape=(32,32,8)
-    cdata = np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1],
-                      [2, 2, 2, 2, 2, 2, 2, 2, 2],
-                      [3, 3, 3, 3, 3, 3, 3, 3, 3],
-                      [4, 4, 4, 4, 4, 4, 4, 4, 4],
-                      [5, 5, 5, 5, 5, 5, 5, 5, 5]])
 
-    clusterid = np.random.randint(0, 5, size=(3, 16))
-
-
-    template = tf.Variable(cdata, name='template')
-
-    layer1=DictConv2D(filters=16,
-                          kernel_size=(3,3),
+    layer1=DictConv2D(filters=32,
+                      kernel_size=(3,3),
                           strides=(1,1),
                           kernel_initializer="he_normal",
                           kernel_regularizer=l2(1e-4),
                           padding="same",
-                          data_format=_IMAGE_DATA_FORMAT)
+                          data_format='channels_last',
+                      comp_rate=4)
     layer1.build(input_shape)
     print (layer1.compute_output_shape(input_shape))
-    print (layer1.A)
-    print (layer1.X)
-    print (layer1.B)
-    print (layer1.Y)
     print (layer1.get_config())
     print ("########")
     weights = layer1.get_weights()
+    print(np.array(weights[0]).shape)
+    print(np.array(weights[1]).shape)
+    print(np.array(weights[2]).shape)
 
-    print (np.array(weights[0]).shape)
-    print (np.array(weights[1]).shape)
-    print (np.array(weights[2]).shape)
-    print (np.array(weights[3]).shape)
-    print (np.array(weights[4]).shape)
+    kernel = np.array(range(3*3*8*32)).reshape((3,3,8,32))
+    from my_utils import comp_kernel
+    dic, index, a_list, b_list, e = comp_kernel(kernel, n_components=10)
+    print(index)
+
+    layer1.index = tf.constant(value=index, dtype='int32')
+
+    for i in range(layer1.dict_num):
+        x = dic[i]
+        weights[0][:, :, :, i] = np.array(x).reshape((3,3,8))
+
+    for i in range(layer1.filters):  ##kernel num
+        a = a_list[i]
+        b = b_list[i]
+        weights[1][i * 2] = a
+        weights[1][i * 2 + 1] = b
+
+    layer1.set_weights(weights)
+
+    inin = tf.constant(value=0, shape=(1,32,32,8), dtype="float32")
+    res=layer1.call(inin)
+    print(res)
+    print(layer1._matmul())
