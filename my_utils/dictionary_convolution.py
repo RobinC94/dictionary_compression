@@ -32,6 +32,7 @@ class DictConv2D(Layer):
                  kernel_constraint=None,
                  bias_constraint=None,
                  comp_rate=None,
+                 dict_index = None,
                  **kwargs
                  ):
         super(DictConv2D, self).__init__(**kwargs)
@@ -53,6 +54,7 @@ class DictConv2D(Layer):
         self.bias_constraint = constraints.get(bias_constraint)
         self.input_spec = InputSpec(ndim=self.rank + 2)
         self.comp_rate = comp_rate
+        self.dict_index = dict_index
 
     def build(self, input_shape):
         if self.data_format=='channels_first':
@@ -80,11 +82,7 @@ class DictConv2D(Layer):
                                name='coef',
                                trainable=True)
 
-        self.index=self.add_weight(shape=(self.filters*2,2,),
-                                   #dtype='int32',
-                                   initializer='zero',
-                                   name='index',
-                                   trainable=False)
+        self.index=np.array(self.dict_index, dtype='int32')
 
         if self.use_bias:
             self.bias = self.add_weight(shape=(self.filters,),
@@ -107,9 +105,17 @@ class DictConv2D(Layer):
 
         #self.kernel = tf.sparse_tensor_dense_matmul(self.matrix, self.dict)
         '''
-        self.matrix = tf.transpose(tf.sparse_to_dense(sparse_indices=tf.to_int32(self.index),
+        #self.index.eval(K.get_session())
+        #print(self.index)
+        '''
+        self.matrix = tf.transpose(tf.sparse_to_dense(sparse_indices=self.index,
                                          sparse_values=self.coef,
                                          output_shape=(self.filters, self.dict_num)))
+        '''
+
+        self.matrix = tf.SparseTensor(indices=self.index,
+                                      values=self.coef,
+                                      dense_shape=(self.filters, self.dict_num))
 
         self.kernel = self._matmul()
 
@@ -183,7 +189,7 @@ class DictConv2D(Layer):
         for z in self.dict_shape[:-1]:
             prod *= z
         reshape_dict = tf.reshape(self.dict, [prod, sh[-1]])
-        result = tf.reshape(tf.matmul(reshape_dict, self.matrix, b_is_sparse=True), self.kernels_shape)
+        result = tf.reshape(tf.transpose(tf.sparse_tensor_dense_matmul(self.matrix, tf.transpose(reshape_dict))), self.kernels_shape)
         return result
 
 if __name__ == "__main__":
@@ -214,7 +220,9 @@ if __name__ == "__main__":
     dic, index, a_list, b_list, e = comp_kernel(kernel, n_components=10)
     print(index)
 
-    layer1.index = tf.constant(value=index, dtype='int32')
+    print(layer1.index)
+    layer1.index[:, :] = np.array(index)
+    print(layer1.index)
 
     for i in range(layer1.dict_num):
         x = dic[i]

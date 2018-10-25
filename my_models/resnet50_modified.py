@@ -14,8 +14,11 @@ from keras.applications.imagenet_utils import _obtain_input_shape
 
 from my_utils import DictConv2D
 
+def index_generator(index_list):
+    for index in index_list:
+        yield index
 
-def identity_block(input_tensor, kernel_size, filters, stage, block, rate=4):
+def identity_block(input_tensor, kernel_size, filters, stage, block, rate=4, index_gen=None):
     filters1, filters2, filters3 = filters
     if K.image_data_format() == 'channels_last':
         bn_axis = 3
@@ -28,8 +31,10 @@ def identity_block(input_tensor, kernel_size, filters, stage, block, rate=4):
     x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2a')(x)
     x = Activation('relu')(x)
 
+    index = index_gen.next()
+
     x = DictConv2D(filters2, kernel_size,
-               padding='same', name=conv_name_base + '2b', comp_rate=rate)(x)
+               padding='same', name=conv_name_base + '2b', comp_rate=rate, dict_index=index)(x)
     x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2b')(x)
     x = Activation('relu')(x)
 
@@ -41,7 +46,7 @@ def identity_block(input_tensor, kernel_size, filters, stage, block, rate=4):
     return x
 
 
-def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2), rate=4):
+def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2), rate=4, index_gen=None):
     filters1, filters2, filters3 = filters
     if K.image_data_format() == 'channels_last':
         bn_axis = 3
@@ -55,8 +60,10 @@ def conv_block(input_tensor, kernel_size, filters, stage, block, strides=(2, 2),
     x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2a')(x)
     x = Activation('relu')(x)
 
+    index = index_gen.next()
+
     x = DictConv2D(filters2, kernel_size, padding='same',
-               name=conv_name_base + '2b', comp_rate=rate)(x)
+               name=conv_name_base + '2b', comp_rate=rate, dict_index=index)(x)
     x = BatchNormalization(axis=bn_axis, name=bn_name_base + '2b')(x)
     x = Activation('relu')(x)
 
@@ -76,7 +83,10 @@ def ModifiedResNet50(include_top=True,
              input_tensor=None, input_shape=None,
              pooling=None,
              classes=1000,
-                     rate=4):
+                     rate=4,
+                     index_list = None):
+
+    index_gen = index_generator(index_list)
 
     # Determine proper input shape
     input_shape = _obtain_input_shape(input_shape,
@@ -104,25 +114,25 @@ def ModifiedResNet50(include_top=True,
     x = Activation('relu')(x)
     x = MaxPooling2D((3, 3), strides=(2, 2))(x)
 
-    x = conv_block(x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1), rate=rate)
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='b', rate=rate)
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='c', rate=rate)
+    x = conv_block(x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1), rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [64, 64, 256], stage=2, block='b', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [64, 64, 256], stage=2, block='c', rate=rate, index_gen=index_gen)
 
-    x = conv_block(x, 3, [128, 128, 512], stage=3, block='a', rate=rate)
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='b', rate=rate)
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='c', rate=rate)
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='d', rate=rate)
+    x = conv_block(x, 3, [128, 128, 512], stage=3, block='a', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [128, 128, 512], stage=3, block='b', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [128, 128, 512], stage=3, block='c', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [128, 128, 512], stage=3, block='d', rate=rate, index_gen=index_gen)
 
-    x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a', rate=rate)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b', rate=rate)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c', rate=rate)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d', rate=rate)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e', rate=rate)
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f', rate=rate)
+    x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f', rate=rate, index_gen=index_gen)
 
-    x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a', rate=rate)
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b', rate=rate)
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c', rate=rate)
+    x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b', rate=rate, index_gen=index_gen)
+    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c', rate=rate, index_gen=index_gen)
 
     x = AveragePooling2D((7, 7), name='avg_pool')(x)
 

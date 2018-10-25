@@ -23,31 +23,27 @@ import my_models
 ## public API
 
 def modify_model(model, name='resnet50', rate=4, save=False):
-    model_new = get_modified_model(name, rate=rate)
 
-    conv_layers_list = get_conv_layers_list(model_new, name)
+    conv_layers_list = get_conv_layers_list(model, name)
     cprint("selected conv layers is:" + str(conv_layers_list), "red")
     modify_layer_num = len(conv_layers_list)
     avg_error = 0
 
-    weighted_layers_list = get_weighted_layers_list(model_new, name)
+    weighted_layers_list = get_weighted_layers_list(model, name)
+
+    dict_list = []
+    index_list = []
+    a_list_list = []
+    b_list_list = []
 
     for l in conv_layers_list:
         print(model.layers[l].name)
-
         # original weights 0: conv, 1: bias
         weights = model.layers[l].get_weights()
-        # new weights 0: A, 1: B, 2: bias, 3: X, 4: Y
-        weights_new = model_new.layers[l].get_weights()
-
-        use_bias = model.layers[l].use_bias
-        if use_bias:
-            weights_new[2] = weights[1]
 
         # kernels HWCN 3*3*c*n
         kernels = np.array(weights[0])
         kernels_num = np.shape(kernels)[-1]
-        filter_size = np.shape(kernels)[:2]
         comp_num = max(my_models.LEAST_ATOMS, kernels_num/rate)
 
         #print(kernels)
@@ -56,7 +52,30 @@ def modify_model(model, name='resnet50', rate=4, save=False):
         dic, index, a_list, b_list, e = comp_kernel(kernels, n_components=comp_num)
         #print(index)
 
-        model.layers[l].index = tf.constant(value=index, dtype='int32')
+        dict_list.append(dic)
+        index_list.append(index)
+        a_list_list.append(a_list)
+        b_list_list.append(b_list)
+
+        avg_error += e
+
+    model_new = get_modified_model(name, rate=rate, index_list=index_list)
+
+    for c in range(len(conv_layers_list)):
+        l = conv_layers_list[c]
+        weights = model.layers[l].get_weights()
+        weights_new = model_new.layers[l].get_weights()
+
+        use_bias = model.layers[l].use_bias
+        if use_bias:
+            weights_new[2] = weights[1]
+
+        kernels = np.array(weights[0])
+        filter_size = np.shape(kernels)[:2]
+
+        dic = dict_list[c]
+        a_list = a_list_list[c]
+        b_list = b_list_list[c]
 
         for i in range(model_new.layers[l].dict_num):
             x = dic[i]
@@ -65,14 +84,9 @@ def modify_model(model, name='resnet50', rate=4, save=False):
         for i in range(model.layers[l].filters):  ##kernel num
             a = a_list[i]
             b = b_list[i]
-            ind1 = index[i*2]
-            ind2 = index[i*2+1]
             weights_new[1][i*2] = a
             weights_new[1][i*2+1] = b
-            weights_new[3][i*2,:] = ind1
-            weights_new[3][i*2+1,:] = ind2
 
-        avg_error += e
         model_new.layers[l].set_weights(weights_new)
 
     for l in weighted_layers_list:
@@ -94,8 +108,9 @@ def get_conv_layers_list(model, name):
     res = []
     layers = model.layers
     for i,l in enumerate(layers):
-        if isinstance(l, DictConv2D):
-            res+= [i]
+        if name == 'resnet50' or name == 'vgg16':
+            if isinstance(l, Conv2D) and l.kernel.shape.as_list()[:2] == [3, 3]:
+                res+= [i]
     return res
 
 def get_weighted_layers_list(model, name):
@@ -105,15 +120,17 @@ def get_weighted_layers_list(model, name):
     res = []
     layers = model.layers
     for i,l in enumerate(layers):
-        if isinstance(l, Conv2D) or isinstance(l, BatchNormalization) or isinstance(l, Dense):
-            res += [i]
+        if name == 'resnet50' or name == 'vgg16':
+            if (isinstance(l, Conv2D) and l.kernel.shape.as_list()[:2] != [3, 3]) \
+                    or isinstance(l, BatchNormalization) or isinstance(l, Dense):
+                res += [i]
     return res
 
-def get_modified_model(name='resnet50', rate=4):
+def get_modified_model(name='resnet50', rate=4, index_list=None):
     if name == 'resnet50':
-        return ModifiedResNet50(rate=rate)
+        return ModifiedResNet50(rate=rate, index_list=index_list)
     elif name == 'vgg16':
-        return ModifiedVGG16()
+        return ModifiedVGG16(rate=rate, index_list=index_list)
     elif name == 'inceptionv3':
         return ModifiedInceptionV3()
     else:
@@ -129,6 +146,6 @@ if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = '2'
     model = keras.applications.ResNet50()
     model.load_weights("../weights/resnet50_weights_75_16.h5")
-    model_new = modify_model(model, name='resnet50', rate=4)
+    model_new = modify_model(model, name='resnet50', rate=32)
 
     evaluate_model(model_new,name='resnet50', image_size=224)

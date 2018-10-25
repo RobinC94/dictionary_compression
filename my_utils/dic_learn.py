@@ -48,7 +48,7 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
     a1=[]
     a2=[]
     nz = np.nonzero(x)
-    index = zip(nz[0], nz[1])
+    index = []
     #print(np.nonzero(x))
     #print(np.where(nz[0] == 1))
     #print(len(nz), n*2)
@@ -58,6 +58,8 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
             l=[nz[1][nz_i[0]], nz[1][nz_i[1]]]
             a1.append(x[i,l[0]])
             a2.append(x[i,l[1]])
+            index.append([i,l[0]])
+            index.append([i,l[1]])
         else:
             if nz[1][nz_i[0]] == 0:
                 l=[nz[1][nz_i[0]],1]
@@ -65,12 +67,16 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
                 l = [nz[1][nz_i[0]], 0]
             a1.append(x[i, l[0]])
             a2.append(0)
+            index.append([i, l[0]])
+            index.append([i,l[1]])
 
     #res = np.dot(x,v)
     #error = np.mean(np.linalg.norm(y-res, axis=1))
     error = 0
     #print(res)
     #print(error)
+    #print(index)
+    assert len(index) == n*2
     return v, index, a1, a2, error
 
 if __name__ == '__main__':
