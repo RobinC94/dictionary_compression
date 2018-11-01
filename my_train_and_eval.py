@@ -5,12 +5,13 @@ from random import sample
 import itertools
 import threading
 import keras
+import time
 
 from keras.applications import imagenet_utils
 from keras.applications.resnet50 import preprocess_input as resnet_preprocess_input
 from keras.applications.vgg16 import preprocess_input as vgg_preprocess_input
 from keras.applications.inception_v3 import preprocess_input as inception_preprocess_input
-#from keras.preprocessing import image
+from keras.preprocessing import image
 from keras.applications.imagenet_utils import decode_predictions
 #from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
@@ -65,7 +66,7 @@ def training_model(model,
     ckpt = ModelCheckpoint(filepath=weight_path, monitor='loss',
                            save_best_only=True,
                            save_weights_only=True)
-    #tensorboard = TensorBoard(log_dir='./logs', histogram_freq=1, write_images=True)
+    tensorboard = TensorBoard(log_dir='./logs', histogram_freq=1, write_images=False)
     model.fit_generator(generator=training_data_gen(image_size, name=name),
                         steps_per_epoch=1281167 / batch_size,  # 1281167 is the number of training data we have
                         validation_data=evaluating_data_gen(image_size, name=name),
@@ -86,6 +87,32 @@ def evaluate_model(model, name='resnet50', image_size=img_size):
                                    max_q_size=16)
     cprint("top1 acc:" + str(res[1]), "red")
     cprint("top5 acc:" + str(res[2]), "red")
+
+def test_speed(model, name='resnet50', image_size=img_size):
+    model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0), metrics=['accuracy'])
+    img_path = "/data1/datasets/imageNet/ILSVRC2016/ILSVRC/Data/CLS-LOC/train/n03884397/n03884397_993.JPEG"
+
+    if name == 'resnet50':
+        preprocessing_function = resnet_preprocess_input
+    elif name == 'vgg16':
+        preprocessing_function = vgg_preprocess_input
+    elif name == 'inceptionv3':
+        preprocessing_function = inception_preprocess_input
+    else:
+        preprocessing_function = imagenet_utils.preprocess_input
+
+    img = image.load_img(img_path, target_size=(image_size, image_size))
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x = preprocessing_function(x)
+    model.predict(x)
+    model.predict(x)
+    start_time = time.time()
+    preds = model.predict(x)
+    end_time = time.time()
+    print('Predicted:', decode_predictions(preds))
+    print('Time used:', end_time-start_time)
+
 
 
 ##private API
@@ -164,15 +191,15 @@ class LossHistory(keras.callbacks.Callback):
 
 
 def lr_fine_tune_schedule(epoch):
-    lr = 1e-3
-    if epoch >= 8:
-        lr *= sqrt(0.1)
-    if epoch >= 5:
-        lr *= sqrt(0.1)
-    if epoch >= 3:
-        lr *= sqrt(0.1)
-    if epoch >= 1:
-        lr *= sqrt(0.1)
+    if epoch < 3:
+        lr = 1e-3
+    elif epoch < 6:
+        lr = 1e-3*sqrt(0.1)
+    elif epoch < 9:
+        lr = 1e-4
+    elif epoch < 12:
+        lr = 1e-4*sqrt(0.1)
+    lr*=sqrt(0.1)
     print('Learning rate: ', lr)
     return lr
 

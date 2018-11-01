@@ -4,7 +4,7 @@ from sklearn.decomposition import MiniBatchDictionaryLearning
 fit_algorithm = 'cd'
 transform_algorithm = 'omp'
 transform_n_nonzero_coefs = 2
-n_iter=50
+n_iter=100
 
 def comp_kernel(kernel, n_components=16):
     num = np.shape(kernel)[3]
@@ -60,7 +60,7 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
             a2.append(x[i,l[1]])
             index.append([i,l[0]])
             index.append([i,l[1]])
-        else:
+        elif nz_i.shape[0] == 1:
             if nz[1][nz_i[0]] == 0:
                 l=[nz[1][nz_i[0]],1]
             else:
@@ -69,6 +69,11 @@ def dict_learn(y, n_components=16, n_iter=n_iter):
             a2.append(0)
             index.append([i, l[0]])
             index.append([i,l[1]])
+        else:
+            a1.append(0)
+            a2.append(0)
+            index.append([i,0])
+            index.append([i,1])
 
     #res = np.dot(x,v)
     #error = np.mean(np.linalg.norm(y-res, axis=1))

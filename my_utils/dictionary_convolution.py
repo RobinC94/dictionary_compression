@@ -24,7 +24,7 @@ class DictConv2D(Layer):
                  dilation_rate=1,
                  activation=None,
                  use_bias=True,
-                 kernel_initializer='glorot_uniform',
+                 kernel_initializer='glorot_normal',
                  bias_initializer='zeros',
                  kernel_regularizer=None,
                  bias_regularizer=None,
@@ -82,6 +82,9 @@ class DictConv2D(Layer):
                                name='coef',
                                trainable=True)
 
+        if isinstance(self.dict_index, dict):
+            self.dict_index = self.dict_index[self.name]
+
         self.index=np.array(self.dict_index, dtype='int32')
 
         if self.use_bias:
@@ -112,19 +115,32 @@ class DictConv2D(Layer):
                                          sparse_values=self.coef,
                                          output_shape=(self.filters, self.dict_num)))
         '''
+        self._input_shape = inputs.get_shape().as_list()
 
         self.matrix = tf.SparseTensor(indices=self.index,
                                       values=self.coef,
                                       dense_shape=(self.filters, self.dict_num))
 
-        self.kernel = self._matmul()
 
+        self.kernel = self._matmul(self.dict)
+
+        
         outputs=K.conv2d(inputs,
                          self.kernel,
                          strides=self.strides,
                          padding=self.padding,
                          data_format=self.data_format,
                          dilation_rate=self.dilation_rate)
+        '''
+        outputs = K.conv2d(inputs,
+                           self.dict,
+                           strides=self.strides,
+                           padding=self.padding,
+                           data_format=self.data_format,
+                           dilation_rate=self.dilation_rate)
+        outputs = self._matmul(outputs)
+        '''
+
 
         if self.use_bias:
             outputs=K.bias_add(
@@ -132,7 +148,6 @@ class DictConv2D(Layer):
                 self.bias,
                 data_format=self.data_format
             )
-
 
         return outputs
 
@@ -183,13 +198,14 @@ class DictConv2D(Layer):
         base_config=super(DictConv2D, self).get_config()
         return dict(list(base_config.items())+list(config.items()))
 
-    def _matmul(self):
-        sh = self.dict_shape
-        prod = 1
-        for z in self.dict_shape[:-1]:
-            prod *= z
-        reshape_dict = tf.reshape(self.dict, [prod, sh[-1]])
-        result = tf.reshape(tf.transpose(tf.sparse_tensor_dense_matmul(self.matrix, tf.transpose(reshape_dict))), self.kernels_shape)
+    def _matmul(self, tensor):
+        sh = tensor.get_shape().as_list()
+        #prod = 64
+        #for z in sh[1:-1]:
+        #    prod *= z
+        reshape_tensor = tf.reshape(tensor, (-1, sh[-1]))
+        result = tf.reshape(tf.transpose(tf.sparse_tensor_dense_matmul(self.matrix, tf.transpose(reshape_tensor))),
+                            [-1,]+sh[1:-1]+[self.filters,])
         return result
 
 if __name__ == "__main__":
@@ -197,32 +213,28 @@ if __name__ == "__main__":
     _IMAGE_DATA_FORMAT='channels_last'
 
     input_shape=(32,32,8)
+    kernel = np.array(range(3 * 3 * 8 * 32)).reshape((3, 3, 8, 32))
+    from my_utils import comp_kernel
+    dic, index, a_list, b_list, e = comp_kernel(kernel, n_components=10)
 
     layer1=DictConv2D(filters=32,
                       kernel_size=(3,3),
-                          strides=(1,1),
+                        strides=(2,2),
                           kernel_initializer="he_normal",
                           kernel_regularizer=l2(1e-4),
                           padding="same",
-                          data_format='channels_last',
-                      comp_rate=4)
+                          data_format=_IMAGE_DATA_FORMAT,
+                      use_bias=False,
+                      comp_rate=4,
+                      dict_index=index)
     layer1.build(input_shape)
-    print (layer1.compute_output_shape(input_shape))
+    #print (layer1.compute_output_shape(input_shape))
     print (layer1.get_config())
     print ("########")
     weights = layer1.get_weights()
     print(np.array(weights[0]).shape)
     print(np.array(weights[1]).shape)
-    print(np.array(weights[2]).shape)
-
-    kernel = np.array(range(3*3*8*32)).reshape((3,3,8,32))
-    from my_utils import comp_kernel
-    dic, index, a_list, b_list, e = comp_kernel(kernel, n_components=10)
-    print(index)
-
-    print(layer1.index)
-    layer1.index[:, :] = np.array(index)
-    print(layer1.index)
+    #print(np.array(weights[2]).shape)
 
     for i in range(layer1.dict_num):
         x = dic[i]
@@ -236,7 +248,6 @@ if __name__ == "__main__":
 
     layer1.set_weights(weights)
 
-    inin = tf.constant(value=0, shape=(1,32,32,8), dtype="float32")
+    inin = tf.constant(value=0, shape=(2,32,32,8), dtype="float32")
     res=layer1.call(inin)
     print(res)
-    print(layer1._matmul())

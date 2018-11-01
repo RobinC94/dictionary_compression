@@ -3,8 +3,8 @@ from termcolor import cprint
 import keras
 import argparse
 
-from my_train_and_eval import evaluate_model, training_model
-from my_models.modify_model import modify_model
+from my_train_and_eval import evaluate_model, training_model, test_speed
+from my_models.modify_model import modify_model, load_modified_model
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-n", "--name", help="model name", default="resnet50", type=str)
@@ -38,6 +38,9 @@ if __name__ == "__main__":
 
     evaluate_model(model_new, name=name, image_size=image_size)
     #evaluate_model(model, name=name, image_size=image_size)
+    test_speed(model, name=name, image_size=image_size)
+    test_speed(model_new, name=name, image_size=image_size)
+    del model
 
     if args.train:
-        training_model(model, name=name, image_size=image_size, epoches=args.epoches, modified=True)
+        training_model(model_new, name=name, image_size=image_size, epoches=args.epoches, modified=True)

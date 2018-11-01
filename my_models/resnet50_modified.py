@@ -108,8 +108,8 @@ def ModifiedResNet50(include_top=True,
     else:
         bn_axis = 1
 
-    x = Conv2D(
-        64, (7, 7), strides=(2, 2), padding='same', name='conv1')(img_input)
+    x = DictConv2D(
+        64, (7, 7), strides=(2, 2), padding='same', name='conv1', comp_rate=rate, dict_index=index_gen.next())(img_input)
     x = BatchNormalization(axis=bn_axis, name='bn_conv1')(x)
     x = Activation('relu')(x)
     x = MaxPooling2D((3, 3), strides=(2, 2))(x)
@@ -154,8 +154,9 @@ def ModifiedResNet50(include_top=True,
     # Create model.
     model = Model(inputs, x, name='resnet50')
 
-
     return model
+
+
 
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
