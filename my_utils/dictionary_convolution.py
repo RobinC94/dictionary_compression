@@ -72,20 +72,23 @@ class DictConv2D(Layer):
 
         self.dict_shape = self.kernel_size + (self.input_dim, self.dict_num,)
 
+        if isinstance(self.dict_index, dict):
+            self.dict_index = self.dict_index[self.name]
+        elif self.dict_index == None:
+            self.dict_index = [(0,0),(0,1)]
+        self.index = np.array(self.dict_index, dtype='int32')
+
+        coef_num = np.shape(self.index)[0]
+
         self.dict = self.add_weight(shape=(self.dict_shape),
                                     initializer=self.kernel_initializer,
                                     name='dict',
                                     trainable=True)
 
-        self.coef=self.add_weight(shape=(self.filters*2,),
+        self.coef=self.add_weight(shape=(coef_num,),
                                initializer=self.kernel_initializer,
                                name='coef',
                                trainable=True)
-
-        if isinstance(self.dict_index, dict):
-            self.dict_index = self.dict_index[self.name]
-
-        self.index=np.array(self.dict_index, dtype='int32')
 
         if self.use_bias:
             self.bias = self.add_weight(shape=(self.filters,),
@@ -121,7 +124,7 @@ class DictConv2D(Layer):
                                       values=self.coef,
                                       dense_shape=(self.filters, self.dict_num))
 
-
+        '''
         self.kernel = self._matmul(self.dict)
 
         
@@ -139,7 +142,7 @@ class DictConv2D(Layer):
                            data_format=self.data_format,
                            dilation_rate=self.dilation_rate)
         outputs = self._matmul(outputs)
-        '''
+        #'''
 
 
         if self.use_bias:
@@ -215,7 +218,7 @@ if __name__ == "__main__":
     input_shape=(32,32,8)
     kernel = np.array(range(3 * 3 * 8 * 32)).reshape((3, 3, 8, 32))
     from my_utils import comp_kernel
-    dic, index, a_list, b_list, e = comp_kernel(kernel, n_components=10)
+    dic, index, x_list, e = comp_kernel(kernel, n_components=10)
 
     layer1=DictConv2D(filters=32,
                       kernel_size=(3,3),
@@ -237,14 +240,10 @@ if __name__ == "__main__":
     #print(np.array(weights[2]).shape)
 
     for i in range(layer1.dict_num):
-        x = dic[i]
-        weights[0][:, :, :, i] = np.array(x).reshape((3,3,8))
+        d = dic[i]
+        weights[0][:, :, :, i] = np.array(d).reshape((3,3,8))
 
-    for i in range(layer1.filters):  ##kernel num
-        a = a_list[i]
-        b = b_list[i]
-        weights[1][i * 2] = a
-        weights[1][i * 2 + 1] = b
+    weights[1] = np.array(x_list)
 
     layer1.set_weights(weights)
 

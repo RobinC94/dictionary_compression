@@ -199,7 +199,7 @@ def lr_fine_tune_schedule(epoch):
         lr = 1e-4
     elif epoch < 12:
         lr = 1e-4*sqrt(0.1)
-    lr*=sqrt(0.1)
+    #lr*=sqrt(0.1)
     print('Learning rate: ', lr)
     return lr
 

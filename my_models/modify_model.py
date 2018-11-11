@@ -19,7 +19,6 @@ import my_models
 ####################################
 ##config params
 #filter_size = 3
-inception_list=[1,2,3,4,6,5,7,9,8,10,12,11,13,15,14,16,18,17,19,21,20,22,24,23,25,27,26,28,30,29,31,33,32,34,36,35,37]
 
 ####################################
 ## public API
@@ -32,11 +31,11 @@ def modify_model(model, name='resnet50', rate=4, save=False):
     avg_error = 0
 
     weighted_layers_list = get_weighted_layers_list(model, name)
+    cprint("weighted layers is:" + str(weighted_layers_list), "yellow")
 
     dict_list = []
     index_list = []
-    a_list_list = []
-    b_list_list = []
+    x_list_list = []
     index_dict = {}
 
     for c in range(len(conv_layers_list)):
@@ -52,15 +51,20 @@ def modify_model(model, name='resnet50', rate=4, save=False):
 
         #print(kernels)
         #print(np.shape(kernels))
+        nor = 0
+        for i in range(kernels_num):
+            k = kernels[:, :, :, i]
+            nor += np.linalg.norm(k) / kernels_num
 
-        dic, index, a_list, b_list, e = comp_kernel(kernels, n_components=comp_num)
+        dic, index, x_list, e = comp_kernel(kernels, n_components=comp_num)
         #print(index)
+        dic *= nor
+        x_list = [i/nor for i in x_list]
 
         dict_list.append(dic)
         index_list.append(index)
-        a_list_list.append(a_list)
-        b_list_list.append(b_list)
-        index_dict["dict_conv2d_" + str(inception_list[c])] = index
+        x_list_list.append(x_list)
+        index_dict[l] = index
 
         avg_error += e
 
@@ -71,6 +75,8 @@ def modify_model(model, name='resnet50', rate=4, save=False):
                 pickle.dump(index_dict, f)
             else:
                 pickle.dump(index_list, f)
+
+    print(index_dict)
 
     model_new = get_modified_model(name, rate=rate, index_list=index_list, index_dict=index_dict)
 
@@ -87,18 +93,13 @@ def modify_model(model, name='resnet50', rate=4, save=False):
         filter_size = np.shape(kernels)[:2]
 
         dic = dict_list[c]
-        a_list = a_list_list[c]
-        b_list = b_list_list[c]
+        x_list = x_list_list[c]
 
         for i in range(model_new.layers[l].dict_num):
-            x = dic[i]
-            weights_new[0][:,:,:,i] = np.array(x).reshape(filter_size + (model.layers[l].input_shape[-1],))
+            d = dic[i]
+            weights_new[0][:,:,:,i] = np.array(d).reshape(filter_size + (model.layers[l].input_shape[-1],))
 
-        for i in range(model.layers[l].filters):  ##kernel num
-            a = a_list[i]
-            b = b_list[i]
-            weights_new[1][i*2] = a
-            weights_new[1][i*2+1] = b
+        weights_new[1] = np.array(x_list)
 
         model_new.layers[l].set_weights(weights_new)
 
@@ -137,7 +138,7 @@ def get_conv_layers_list(model, name):
     layers = model.layers
     for i,l in enumerate(layers):
         #if name == 'resnet50' or name == 'vgg16':
-            if isinstance(l, Conv2D) and l.kernel.shape.as_list()[1]*l.kernel.shape.as_list()[1] >= 3:
+            if isinstance(l, Conv2D) and l.kernel.shape.as_list()[0]*l.kernel.shape.as_list()[1] >= 3:
                 res+= [i]
     return res
 
@@ -156,11 +157,20 @@ def get_weighted_layers_list(model, name):
 
 def get_modified_model(name='resnet50', include_top=True, rate=4, index_list=None, index_dict=None):
     if name == 'resnet50':
-        return ModifiedResNet50(include_top=include_top, rate=rate, index_list=index_list)
+        return ModifiedResNet50(include_top=include_top, input_shape=(224,224,3), rate=rate, index_list=index_list)
     elif name == 'vgg16':
-        return ModifiedVGG16(include_top=include_top, rate=rate, index_list=index_list)
+        return ModifiedVGG16(include_top=include_top, input_shape=(224,224,3), rate=rate, index_list=index_list)
     elif name == 'inceptionv3':
-        return ModifiedInceptionV3(include_top=include_top, rate=rate, index_dict=index_dict)
+        model_tmp = ModifiedInceptionV3(include_top=include_top, input_shape=(299,299,3), rate=rate, index_dict=None)
+        dict_res = {}
+        layers = model_tmp.layers
+        for i, l in enumerate(layers):
+            if (isinstance(l, DictConv2D)):
+                print(i, l.name)
+                dict_res[l.name] = index_dict[i]
+
+
+        return ModifiedInceptionV3(include_top=include_top, input_shape=(299,299,3), rate=rate, index_dict=dict_res)
     else:
         raise ValueError("model name wrong")
 
@@ -172,8 +182,82 @@ if __name__ == "__main__":
     from my_train_and_eval import evaluate_model
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '2'
-    model = keras.applications.ResNet50()
-    model.load_weights("../weights/resnet50_weights_75_16.h5")
-    model_new = modify_model(model, name='resnet50', rate=64)
+    #model = keras.applications.ResNet50()
+    #model.load_weights("../weights/resnet50_weights_75_16.h5")
+    #model = keras.applications.VGG16()
+    #model.load_weights("../weights/vgg16_weights_71_42.h5")
+    model = keras.applications.InceptionV3()
+    name='inceptionv3'
+    rate=50
 
-    evaluate_model(model_new,name='resnet50', image_size=224)
+    model_new = modify_model(model, name, rate)
+    evaluate_model(model, name, 299)
+    evaluate_model(model_new, name, 299)
+
+
+    '''
+
+    conv_layers_list = get_conv_layers_list(model, name)[:1]
+    cprint("selected conv layers is:" + str(conv_layers_list), "red")
+    modify_layer_num = len(conv_layers_list)
+    avg_error = 0
+
+    dict_list = []
+    index_list = []
+    x_list_list = []
+    index_dict = {}
+    avg_norm = 0
+
+    for c in range(len(conv_layers_list)):
+        l = conv_layers_list[c]
+        print(model.layers[l].name)
+        # original weights 0: conv, 1: bias
+        weights = model.layers[l].get_weights()
+
+        # kernels HWCN 3*3*c*n
+        kernels = np.array(weights[0])
+        kernels_num = np.shape(kernels)[-1]
+        comp_num = max(my_models.LEAST_ATOMS, kernels_num / rate)
+
+        # print(kernels)
+        # print(np.shape(kernels))
+        nor = 0
+
+        for i in range(kernels_num):
+            k = kernels[:,:,:,i]
+            nor += np.linalg.norm(k) / kernels_num
+
+        dic, index, x_list, e = comp_kernel(kernels, n_components=comp_num)
+        # print(index)
+        dic *= nor
+        x_list = [i/nor for i in x_list]
+
+        index_dict[l] = index
+
+        k=kernels[:,:,:,0]
+        k.shape = (147,)
+        print(index)
+
+        kn = np.zeros(shape=(147,))
+        for ii in range(len(index)):
+            i = index[ii]
+            x = x_list[ii]
+            if i[0] > 0: break
+            d = dic[i[1]]
+            kn += x*d
+
+        print(k[:12])
+        print(kn[:12])
+    
+    #'''
+
+
+
+
+
+
+
+
+
+
+
