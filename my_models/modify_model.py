@@ -76,8 +76,6 @@ def modify_model(model, name='resnet50', rate=4, save=False):
             else:
                 pickle.dump(index_list, f)
 
-    print(index_dict)
-
     model_new = get_modified_model(name, rate=rate, index_list=index_list, index_dict=index_dict)
 
     for c in range(len(conv_layers_list)):
@@ -150,7 +148,7 @@ def get_weighted_layers_list(model, name):
     layers = model.layers
     for i,l in enumerate(layers):
         #if name == 'resnet50' or name == 'vgg16':
-            if (isinstance(l, Conv2D) and l.kernel.shape.as_list()[1]*l.kernel.shape.as_list()[1] < 3) \
+            if (isinstance(l, Conv2D) and l.kernel.shape.as_list()[0]*l.kernel.shape.as_list()[1] < 3) \
                     or isinstance(l, BatchNormalization) or isinstance(l, Dense):
                 res += [i]
     return res
@@ -166,10 +164,11 @@ def get_modified_model(name='resnet50', include_top=True, rate=4, index_list=Non
         layers = model_tmp.layers
         for i, l in enumerate(layers):
             if (isinstance(l, DictConv2D)):
-                print(i, l.name)
-                dict_res[l.name] = index_dict[i]
-
-
+                #print(i, l.name)
+                name_id = int(l.name[12:])
+                new_name = l.name[:12] + str(name_id + 54)
+                dict_res[new_name] = index_dict[i]
+        del model_tmp
         return ModifiedInceptionV3(include_top=include_top, input_shape=(299,299,3), rate=rate, index_dict=dict_res)
     else:
         raise ValueError("model name wrong")
@@ -190,64 +189,31 @@ if __name__ == "__main__":
     name='inceptionv3'
     rate=50
 
-    model_new = modify_model(model, name, rate)
-    evaluate_model(model, name, 299)
-    evaluate_model(model_new, name, 299)
+    #model_new = modify_model(model, name, rate)
+    #evaluate_model(model, name, 299)
+    #evaluate_model(model_new, name, 299)
 
 
-    '''
+    #'''
 
-    conv_layers_list = get_conv_layers_list(model, name)[:1]
+    conv_layers_list = get_conv_layers_list(model, name)
     cprint("selected conv layers is:" + str(conv_layers_list), "red")
     modify_layer_num = len(conv_layers_list)
-    avg_error = 0
 
-    dict_list = []
-    index_list = []
-    x_list_list = []
-    index_dict = {}
-    avg_norm = 0
+    model_tmp = ModifiedInceptionV3(include_top=True, input_shape=(299, 299, 3), rate=rate, index_dict=None)
+    dict_res = {}
+    layers = model_tmp.layers
+    for i, l in enumerate(layers):
+        if (isinstance(l, DictConv2D)):
+            print(i, l.name)
+            name_id = int(l.name[12:])
+            new_name = l.name[:12] + str(name_id + 54)
+            dict_res[new_name] = index_list[i]
+            print(new_name)
 
-    for c in range(len(conv_layers_list)):
-        l = conv_layers_list[c]
-        print(model.layers[l].name)
-        # original weights 0: conv, 1: bias
-        weights = model.layers[l].get_weights()
+    del model_tmp
+    model_new = ModifiedInceptionV3(include_top=True, input_shape=(299, 299, 3), rate=rate, index_dict=dict_res)
 
-        # kernels HWCN 3*3*c*n
-        kernels = np.array(weights[0])
-        kernels_num = np.shape(kernels)[-1]
-        comp_num = max(my_models.LEAST_ATOMS, kernels_num / rate)
-
-        # print(kernels)
-        # print(np.shape(kernels))
-        nor = 0
-
-        for i in range(kernels_num):
-            k = kernels[:,:,:,i]
-            nor += np.linalg.norm(k) / kernels_num
-
-        dic, index, x_list, e = comp_kernel(kernels, n_components=comp_num)
-        # print(index)
-        dic *= nor
-        x_list = [i/nor for i in x_list]
-
-        index_dict[l] = index
-
-        k=kernels[:,:,:,0]
-        k.shape = (147,)
-        print(index)
-
-        kn = np.zeros(shape=(147,))
-        for ii in range(len(index)):
-            i = index[ii]
-            x = x_list[ii]
-            if i[0] > 0: break
-            d = dic[i[1]]
-            kn += x*d
-
-        print(k[:12])
-        print(kn[:12])
     
     #'''
 
