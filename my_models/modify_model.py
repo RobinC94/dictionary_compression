@@ -12,6 +12,7 @@ from termcolor import cprint
 from array import array
 
 from my_models import ModifiedResNet50,  ModifiedVGG16, ModifiedInceptionV3
+from my_models.resnet20_modified import ModifiedResnet20, Resnet20
 from my_utils import comp_kernel, DictConv2D
 
 import my_models
@@ -158,6 +159,8 @@ def get_modified_model(name='resnet50', include_top=True, rate=4, index_list=Non
         return ModifiedResNet50(include_top=include_top, input_shape=(224,224,3), rate=rate, index_list=index_list)
     elif name == 'vgg16':
         return ModifiedVGG16(include_top=include_top, input_shape=(224,224,3), rate=rate, index_list=index_list)
+    elif name == 'resnet20':
+        return ModifiedResnet20(rate=rate, index_list=index_list)
     elif name == 'inceptionv3':
         model_tmp = ModifiedInceptionV3(include_top=include_top, input_shape=(299,299,3), rate=rate, index_dict=None)
         dict_res = {}
@@ -179,40 +182,23 @@ def get_modified_model(name='resnet50', include_top=True, rate=4, index_list=Non
 ## for debug
 if __name__ == "__main__":
     from my_train_and_eval import evaluate_model
+    from cifar10_train_and_eval import model_test
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
     #model = keras.applications.ResNet50()
     #model.load_weights("../weights/resnet50_weights_75_16.h5")
     #model = keras.applications.VGG16()
     #model.load_weights("../weights/vgg16_weights_71_42.h5")
-    model = keras.applications.InceptionV3()
-    name='inceptionv3'
+    #model = keras.applications.InceptionV3()
+    model = Resnet20()
+    model.load_weights("../weights/resnet20_cifar10_weights.183.h5")
+    name='resnet20'
     rate=50
 
-    #model_new = modify_model(model, name, rate)
-    #evaluate_model(model, name, 299)
-    #evaluate_model(model_new, name, 299)
+    model_new = modify_model(model, name=name, rate=rate)
+    model_test(model)
+    model_test(model_new)
 
-
-    #'''
-
-    conv_layers_list = get_conv_layers_list(model, name)
-    cprint("selected conv layers is:" + str(conv_layers_list), "red")
-    modify_layer_num = len(conv_layers_list)
-
-    model_tmp = ModifiedInceptionV3(include_top=True, input_shape=(299, 299, 3), rate=rate, index_dict=None)
-    dict_res = {}
-    layers = model_tmp.layers
-    for i, l in enumerate(layers):
-        if (isinstance(l, DictConv2D)):
-            print(i, l.name)
-            name_id = int(l.name[12:])
-            new_name = l.name[:12] + str(name_id + 54)
-            dict_res[new_name] = index_list[i]
-            print(new_name)
-
-    del model_tmp
-    model_new = ModifiedInceptionV3(include_top=True, input_shape=(299, 299, 3), rate=rate, index_dict=dict_res)
 
     
     #'''
