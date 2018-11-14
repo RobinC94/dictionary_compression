@@ -10,8 +10,11 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers import Dense
 from termcolor import cprint
 from array import array
+from scipy.spatial.distance import pdist
 
-from my_models import ModifiedResNet50,  ModifiedVGG16, ModifiedInceptionV3
+from my_models.resnet50_modified import ModifiedResNet50
+from my_models.vgg16_modified import  ModifiedVGG16
+from my_models.inceptionv3_modified import ModifiedInceptionV3
 from my_models.resnet20_modified import ModifiedResnet20, Resnet20
 from my_utils import comp_kernel, DictConv2D
 
@@ -122,10 +125,33 @@ def load_modified_model(name='resnet50', include_top=True, rate=4, weights=None)
     else:
         model_new = get_modified_model(name, include_top=include_top, rate=rate, index_list=index_list)
 
-    if weights is not None:
+    if weights is not None and os.path.isfile(weights):
         model_new.load_weights(weights)
     return model_new
 
+def cal_avg_pcc(model_list):
+    for m in model_list:
+        layers = m.layers
+        total_avg_pcc = 0
+        num = 0
+        for l in layers:
+            if (isinstance(l, Conv2D) and l.kernel.shape.as_list()[0]*l.kernel.shape.as_list()[1] >= 3) or isinstance(l, DictConv2D):
+                num += 1
+                weights = l.get_weights()
+                kernels = weights[0]
+                shape = np.shape(kernels)
+                n = shape[-1]
+                kernels = np.reshape(kernels, (-1, shape[-1])).T
+                res = np.corrcoef(kernels)
+                avg_pcc = np.mean(np.abs(res)) - 1/n
+                #res = pdist(kernels, 'cosine')
+                #avg_pcc = np.mean(res)
+                print(l.name, avg_pcc)
+                total_avg_pcc += avg_pcc
+
+        total_avg_pcc /= num
+        cprint("total avg pcc:" + str(total_avg_pcc), 'red')
+        print("\n")
 
 ########################################
 ## private API

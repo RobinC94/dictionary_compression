@@ -550,4 +550,5 @@ def preprocess_input(x):
 
 if __name__ == "__main__":
     import os
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
+    model = InceptionV3_lite(rate=4)

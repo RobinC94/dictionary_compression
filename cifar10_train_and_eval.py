@@ -168,10 +168,8 @@ def fine_tune(model, epochs=80, data_path = None, rate=4):
                         verbose=1,
                         workers=16,
                         use_multiprocessing=True,
+                        initial_epoch=29,
                         callbacks=callbacks)
-
-
-
 
 ########################################
 ## private API

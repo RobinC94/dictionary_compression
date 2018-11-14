@@ -12,7 +12,7 @@ from keras import backend as K
 from keras.engine.topology import get_source_inputs
 from keras.applications.imagenet_utils import _obtain_input_shape
 
-from my_utils import DictConv2D
+from my_utils.dictionary_convolution import DictConv2D
 
 def index_generator(index_list):
     for index in index_list:
@@ -245,7 +245,7 @@ def ResNet50_lite(include_top=True,
     import my_models
 
     x = Conv2D(
-        max(my_models.LEAST_ATOMS, int(64/rate)), (7, 7), strides=(2, 2), padding='same', name='conv1', comp_rate=rate, dict_index=index_gen.next())(img_input)
+        max(my_models.LEAST_ATOMS, int(64/rate)), (7, 7), strides=(2, 2), padding='same', name='conv1')(img_input)
     x = BatchNormalization(axis=bn_axis, name='bn_conv1')(x)
     x = Activation('relu')(x)
     x = MaxPooling2D((3, 3), strides=(2, 2))(x)
@@ -294,6 +294,7 @@ def ResNet50_lite(include_top=True,
 
 
 if __name__ == "__main__":
+    import os
+
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
-    model = ModifiedResNet50(rate=4)
-    model.summary()
+    model = ResNet50_lite(rate=4)

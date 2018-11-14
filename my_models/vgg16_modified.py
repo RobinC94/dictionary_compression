@@ -165,3 +165,9 @@ def VGG16_lite(include_top=True, weights='imagenet',
     model = Model(inputs, x, name='vgg16')
 
     return model
+
+if __name__ == "__main__":
+    import  os
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
+    model = VGG16_lite(rate=4)
+

@@ -4,7 +4,7 @@ import keras
 import argparse
 
 from my_train_and_eval import evaluate_model, training_model, test_speed
-from my_models import modify_model, load_modified_model
+from my_models.modify_model import modify_model, load_modified_model
 from my_models.resnet20_modified import Resnet20
 from cifar10_train_and_eval import model_test, fine_tune
 
