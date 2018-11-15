@@ -3,7 +3,7 @@ from sklearn.decomposition import MiniBatchDictionaryLearning
 
 fit_algorithm = 'lars'
 transform_algorithm = 'omp'
-transform_n_nonzero_coefs = 3
+transform_n_nonzero_coefs = 4
 n_iter = 500
 
 def comp_kernel(kernel, n_components=16):

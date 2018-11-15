@@ -1,4 +1,4 @@
-import os
+import os, time
 
 import numpy as np
 import keras.backend as K
@@ -170,6 +170,28 @@ def fine_tune(model, epochs=80, data_path = None, rate=4):
                         use_multiprocessing=True,
                         initial_epoch=29,
                         callbacks=callbacks)
+
+def test_time(model):
+    path = cifar10_path
+    num_samples = 32
+    x_ = np.zeros((num_samples, 3, 32, 32), dtype='uint8')
+    fpath = os.path.join(path, 'data_batch_' + str(1))
+    data, labels = cifar10.load_batch(fpath)
+    x_[:,:,:,:]=data[:num_samples,:,:,:]
+    if K.image_data_format() == 'channels_last':
+        x_ = x_.transpose(0, 2, 3, 1)
+
+    x_ = x_.astype('float32') / 255
+
+    x_mean = np.mean(x_, axis=0)
+    x_ -= x_mean
+
+    model.predict(x_)
+    start_time = time.time()
+    model.predict(x_)
+    end_time = time.time()
+    cprint('Time used:' + str(end_time - start_time), 'red')
+
 
 ########################################
 ## private API

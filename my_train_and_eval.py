@@ -47,12 +47,17 @@ def training_model(model,
                    epoches=nb_epoch,
                    batch_size=batch_size,
                    modified=False,
-                   rate=4
+                   rate=4,
+                   lite = False
                    ):
     if modified:
         weight_path = "./weights/%s_modified_weights_%d.{epoch:02d}.h5" % (name, rate)
         csv_path = './result/train_%s_modified_imagenet_%d.csv' % (name, rate)
         lr_func = lr_fine_tune_schedule
+    elif lite:
+        weight_path = "./weights/%s_lite_weights_%d.{epoch:02d}.h5" % (name, rate)
+        csv_path = './result/train_%s_lite_imagenet_%d.csv' % (name, rate)
+        lr_func = lr_train_schedule
     else:
         weight_path = "./weights/%s_weights.{epoch:02d}.h5" % name
         csv_path = './result/train_%s_imagenet.csv' % name
@@ -72,6 +77,7 @@ def training_model(model,
                         validation_data=evaluating_data_gen(image_size, name=name),
                         validation_steps=50000 / evaluating_batch_size,
                         epochs=epoches, verbose=1, max_q_size=32,
+                        #initial_epoch=2,
                         workers=16,
                         callbacks=[lr_reducer, lr_scheduler, early_stopper, csv_logger, ckpt])
     cprint("training is done\n", "yellow")
@@ -206,10 +212,14 @@ def lr_fine_tune_schedule(epoch):
 
 
 def lr_train_schedule(epoch):
-    lr = 1e-4
+    lr = 1e-2
     if epoch >= 4:
         lr *= sqrt(0.1)
     if epoch >= 8:
+        lr *= sqrt(0.1)
+    if epoch >= 12:
+        lr *= sqrt(0.1)
+    if epoch >= 16:
         lr *= sqrt(0.1)
     print('Learning rate: ', lr)
     return lr
